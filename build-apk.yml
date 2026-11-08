@@ -30,6 +30,11 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Inject Android Camera Permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n    <uses-feature android:name="android.hardware.camera" android:required="true" />\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />' $MANIFEST
+
       - name: Build Android APK
         run: |
           cd android
