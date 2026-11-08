@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lumen Camera - Pro Mode</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .badge {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: #222;
+            color: #d4af37;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #d4af37;
+        }
+
+        .top-controls {
+            display: flex;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .icon-btn.active {
+            color: #d4af37;
+            opacity: 1;
+        }
+
+        /* Viewport */
+        .viewport-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #050505;
+            overflow: hidden;
+        }
+
+        video, canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* HUD Overlay */
+        .hud-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .grid-lines {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .grid-box {
+            border: 0.5px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .sensor-info {
+            align-self: flex-start;
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #00ffcc;
+            letter-spacing: 0.5px;
+        }
+
+        .lock-indicators {
+            display: flex;
+            gap: 8px;
+            align-self: center;
+        }
+
+        .lock-tag {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            display: none;
+        }
+
+        .lock-tag.active {
+            display: inline-block;
+        }
+
+        /* Pro Controls Panel */
+        .pro-panel {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #aaa;
+            width: 70px;
+            text-transform: uppercase;
+        }
+
+        .slider-val {
+            font-size: 11px;
+            color: #d4af37;
+            width: 45px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            background: #333;
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #d4af37;
+            cursor: pointer;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: space-around;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
+        .mode-btn {
+            background: none;
+            border: none;
+            color: #777;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .mode-btn.active {
+            color: #fff;
+            border-bottom: 2px solid #d4af37;
+        }
+
+        /* Bottom Action Bar */
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 40px 24px;
+            background: #0a0a0a;
+            z-index: 10;
+        }
+
+        .shutter-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: 4px solid #fff;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .shutter-btn:active {
+            transform: scale(0.92);
+        }
+
+        .shutter-inner {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .gallery-preview {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            background: #222;
+            border: 1px solid #444;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .btn-toggle {
+            padding: 6px 12px;
+            border-radius: 4px;
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-toggle.active {
+            background: #d4af37;
+            color: #000;
+            border-color: #d4af37;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Toolbar -->
+    <div class="top-bar">
+        <span class="badge">LUMEN PRO</span>
+        <div class="top-controls">
+            <button class="icon-btn" id="flash-btn" onclick="toggleFlash()">FLASH: OFF</button>
+            <button class="icon-btn" id="timer-btn" onclick="toggleTimer()">TIMER: OFF</button>
+            <button class="icon-btn" id="raw-btn" onclick="toggleRAW()">RAW</button>
+            <button class="icon-btn" id="dlog-btn" onclick="toggleDLog()">D-LOG</button>
+        </div>
+    </div>
+
+    <!-- Main Viewport -->
+    <div class="viewport-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="proc-canvas"></canvas>
+        <div class="hud-overlay">
+            <div class="sensor-info" id="sensor-res">200MP SENSOR MODE</div>
+            <div class="lock-indicators">
+                <span class="lock-tag" id="ae-lock">AE-L</span>
+                <span class="lock-tag" id="af-lock">AF-L</span>
+            </div>
+            <div class="grid-lines">
+                <div class="grid-box"></div><div class="grid-box"></div><div class="grid-box"></div>
+                <div class="grid-box"></div><div class="grid-box"></div><div class="grid-box"></div>
+                <div class="grid-box"></div><div class="grid-box"></div><div class="grid-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pro Controls Slider Panel -->
+    <div class="pro-panel">
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setRes('200MP')">200MP</button>
+            <button class="mode-btn" onclick="setRes('108MP')">108MP</button>
+            <button class="mode-btn" onclick="setRes('64MP')">64MP</button>
+            <button class="mode-btn" onclick="setRes('48MP')">48MP</button>
+        </div>
+
+        <div class="slider-row">
+            <span class="slider-label">EXPOSURE</span>
+            <input type="range" id="exp-slider" min="-3" max="3" step="0.1" value="0" oninput="updateProc()">
+            <span class="slider-val" id="exp-val">0.0 EV</span>
+        </div>
+
+        <div class="slider-row">
+            <span class="slider-label">FOCUS</span>
+            <input type="range" id="focus-slider" min="0" max="100" value="50" oninput="updateProc()">
+            <span class="slider-val" id="focus-val">AUTO</span>
+        </div>
+
+        <div class="slider-row">
+            <span class="slider-label">DEPTH</span>
+            <input type="range" id="depth-slider" min="0" max="10" step="0.5" value="0" oninput="updateProc()">
+            <span class="slider-val" id="depth-val">f/1.4</span>
+        </div>
+    </div>
+
+    <!-- Bottom Action Controls -->
+    <div class="bottom-bar">
+        <button class="btn-toggle" id="lock-ae-btn" onclick="toggleAELock()">LOCK EXP</button>
+        <button class="shutter-btn" onclick="takePhoto()">
+            <div class="shutter-inner"></div>
+        </button>
+        <div class="gallery-preview" id="gallery-preview">
+            <span style="font-size:10px; color:#555;">RAW</span>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('proc-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let isAELocked = false;
+        let isAFLocked = false;
+        let isRAW = false;
+        let isDLog = false;
+        let flashMode = 'OFF';
+        let timerDelay = 0;
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 3840 }, height: { ideal: 2160 } },
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth || 1920;
+                    canvas.height = video.videoHeight || 1080;
+                    requestAnimationFrame(processFrame);
+                };
+            } catch (err) {
+                console.warn('Camera access fallback or denied:', err);
+            }
+        }
+
+        function processFrame() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const exp = parseFloat(document.getElementById('exp-slider').value);
+                const depth = parseFloat(document.getElementById('depth-slider').value);
+
+                let filters = [];
+                if (exp !== 0) filters.push(`brightness(${100 + exp * 25}%)`);
+                if (depth > 0) filters.push(`blur(${depth * 0.5}px)`);
+                if (isDLog) filters.push(`contrast(70%) saturate(60%)`);
+                
+                canvas.style.filter = filters.join(' ');
+            }
+            requestAnimationFrame(processFrame);
+        }
+
+        function updateProc() {
+            document.getElementById('exp-val').innerText = `${parseFloat(document.getElementById('exp-slider').value).toFixed(1)} EV`;
+            document.getElementById('focus-val').innerText = document.getElementById('focus-slider').value == 50 ? 'AUTO' : `${document.getElementById('focus-slider').value}%`;
+            document.getElementById('depth-val').innerText = `f/${(1.4 + parseFloat(document.getElementById('depth-slider').value) * 0.5).toFixed(1)}`;
+        }
+
+        function setRes(res) {
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('sensor-res').innerText = `${res} SENSOR MODE`;
+        }
+
+        function toggleAELock() {
+            isAELocked = !isAELocked;
+            document.getElementById('ae-lock').classList.toggle('active', isAELocked);
+            document.getElementById('lock-ae-btn').classList.toggle('active', isAELocked);
+        }
+
+        function toggleFlash() {
+            flashMode = flashMode === 'OFF' ? 'ON' : 'OFF';
+            document.getElementById('flash-btn').innerText = `FLASH: ${flashMode}`;
+            document.getElementById('flash-btn').classList.toggle('active', flashMode === 'ON');
+        }
+
+        function toggleTimer() {
+            timerDelay = timerDelay === 0 ? 3 : timerDelay === 3 ? 10 : 0;
+            document.getElementById('timer-btn').innerText = timerDelay === 0 ? 'TIMER: OFF' : `TIMER: ${timerDelay}S`;
+            document.getElementById('timer-btn').classList.toggle('active', timerDelay > 0);
+        }
+
+        function toggleRAW() {
+            isRAW = !isRAW;
+            document.getElementById('raw-btn').classList.toggle('active', isRAW);
+        }
+
+        function toggleDLog() {
+            isDLog = !isDLog;
+            document.getElementById('dlog-btn').classList.toggle('active', isDLog);
+        }
+
+        function takePhoto() {
+            if (timerDelay > 0) {
+                setTimeout(captureImage, timerDelay * 1000);
+            } else {
+                captureImage();
+            }
+        }
+
+        function captureImage() {
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+            const preview = document.getElementById('gallery-preview');
+            preview.innerHTML = `<img src="${dataUrl}">`;
+        }
+
+        window.onload = initCamera;
+    </script>
+</body>
+</html>
